@@ -37,7 +37,7 @@ ray.get(result_ids)  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 ## Asynchronous Computation in Ray
 #### Ray允许任意Python函数异步执行。这是通过将Python函数指定为 **远程函数(remote function)** 来完成的。
 ### remote function
-#### 调用add1（1，2）返回3并导致Python解释器阻塞直到计算完成，调用add2.remote（1,2）立即返回一个对象ID并创建一个 **任务(task)** 。该任务将由系统调度并异步执行（可能在不同的机器上）。当任务完成执行时，其返回值将存储在对象存储中。
+#### 调用add1（1，2）返回3并导致Python解释器阻塞直到计算完成，调用add2.remote（1,2）立即返回一个对象ID并创建一个*任务(task)* 。该任务将由系统调度并异步执行（可能在不同的机器上）。当任务完成执行时，其返回值将存储在对象存储中。
 ```
 x_id = add2.remote(1, 2)
 ray.get(x_id)  # 3
@@ -59,8 +59,8 @@ def f2():
 # The following takes one second (assuming the system has at least ten CPUs).
 ray.get([f2.remote() for _ in range(10)])
 ```
-#### 
-#### 
+#### *提交任务*和*执行任务*存在明显的区别。当调用远程函数时，执行该函数的任务将被提交给本地调度程序，并立即返回任务输出的对象ID。然而，在系统实际调度worker上的任务之前，将不执行任务。任务执行不是懒惰地完成的。系统将输入数据移动到任务中，只要其输入依赖项可用并且有足够的资源用于计算，任务就会执行。
+#### *提交任务时，每个参数可以通过值或对象ID传入*。例如，这些行具有相同的行为。
 #### 
 #### 
 #### 
