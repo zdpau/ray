@@ -60,15 +60,79 @@ def f2():
 ray.get([f2.remote() for _ in range(10)])
 ```
 #### *提交任务*和*执行任务*存在明显的区别。当调用远程函数时，执行该函数的任务将被提交给本地调度程序，并立即返回任务输出的对象ID。然而，在系统实际调度worker上的任务之前，将不执行任务。任务执行不是懒惰地完成的。系统将输入数据移动到任务中，只要其输入依赖项可用并且有足够的资源用于计算，任务就会执行。
-#### *提交任务时，每个参数可以通过值或对象ID传入*。例如，这些行具有相同的行为。
-#### 
-#### 
-#### 
-#### 
-#### 
-#### 
-#### 
-#### 
+#### *!!提交任务时，每个参数可以通过值或对象ID传入*。例如，这些行具有相同的行为。
+```
+add2.remote(1, 2)
+add2.remote(1, ray.put(2))
+add2.remote(ray.put(1), ray.put(2))
+```
+#### 远程函数永远不会返回实际值，它们总是返回对象ID。
+#### 当远程函数实际执行时，它对Python对象进行操作。也就是说，如果使用任何对象ID调用远程函数，系统将从对象存储中检索相应的对象。
+#### 请注意，远程函数可以返回多个对象ID。
+```
+@ray.remote(num_return_vals=3)
+def return_multiple():
+    return 1, 2, 3
+
+a_id, b_id, c_id = return_multiple.remote()
+```
+### Expressing dependencies between tasks(表达任务之间的依赖关系)
+#### 程序员可以通过将一个任务的对象ID输出作为参数传递给另一个任务来表达任务之间的依赖关系。例如，我们可以按如下方式启动三项任务，每项任务都取决于之前的任务。
+```
+@ray.remote
+def f(x):
+    return x + 1
+
+x = f.remote(0)
+y = f.remote(x)
+z = f.remote(y)
+ray.get(z) # 3
+```
+#### 上面的第二个任务在第一个任务完成之前不会执行，第三个任务直到第二个任务完成才会执行。在这个例子中，没有并行的机会。
+#### 编写任务的能力可以很容易地表达有趣的依赖关系。考虑下面的tree reduce的实现。
+```
+import numpy as np
+
+@ray.remote
+def generate_data():
+    return np.random.normal(size=1000)
+
+@ray.remote
+def aggregate_data(x, y):
+    return x + y
+
+# Generate some random data. This launches 100 tasks that will be scheduled on
+# various nodes. The resulting data will be distributed around the cluster.
+data = [generate_data.remote() for _ in range(100)]
+
+# Perform a tree reduce.
+while len(data) > 1:
+    data.append(aggregate_data.remote(data.pop(0), data.pop(0)))
+
+# Fetch the result.
+ray.get(data)
+```
+### Remote Functions Within Remote Functions(远程功能中的远程功能)
+#### 到目前为止，我们一直只从driver调用远程功能。但worker也可以调用远程函数。为了说明这一点，请考虑以下示例。
+```
+@ray.remote
+def sub_experiment(i, j):
+    # Run the jth sub-experiment for the ith experiment.
+    return i + j
+
+@ray.remote
+def run_experiment(i):
+    sub_results = []
+    # Launch tasks to perform 10 sub-experiments in parallel.
+    for j in range(10):
+        sub_results.append(sub_experiment.remote(i, j))
+    # Return the sum of the results of the sub-experiments.
+    return sum(ray.get(sub_results))
+
+results = [run_experiment.remote(i) for i in range(5)]
+ray.get(results) # [45, 55, 65, 75, 85]
+```
+#### 当在一个worker上执行远程函数run_experiment时，它会多次调用远程函数sub_experiment。这是一个例子，说明了多个实验（每个实验在内部利用并行性）都可以并行运行。
 #### 
 #### 
 #### 
