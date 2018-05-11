@@ -23,7 +23,7 @@
 #### 如果尚未创建与对象ID x_id对应的远程对象，则命令ray.get（x_id）将等待，直到创建远程对象。
 #### ray.get的一个非常常见的用例是获取对象ID的列表。在这种情况下，您可以调用ray.get（object_ids），其中object_ids是对象ID的列表。
 ## Asynchronous Computation in Ray
-#### Ray允许任意Python函数异步执行。这是通过将Python函数指定为**远程函数(remote function)**来完成的。
+#### Ray允许任意Python函数异步执行。这是通过将Python函数指定为 **远程函数(remote function)** 来完成的。
 #### 
 #### 
 #### 
