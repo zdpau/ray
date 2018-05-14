@@ -36,6 +36,17 @@ ray.get(result_ids)  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 ```
 ## Asynchronous Computation in Ray
 #### Ray允许任意Python函数异步执行。这是通过将Python函数指定为 **远程函数(remote function)** 来完成的。
+#### 例如，一个普通的Python函数看起来像这样：
+```
+def add1(a, b):
+    return a + b
+```
+#### 远程函数看起来像这样：
+```
+@ray.remote
+def add2(a, b):
+    return a + b
+```
 ### remote function
 #### 调用add1（1，2）返回3并导致Python解释器阻塞直到计算完成，调用add2.remote（1,2）立即返回一个对象ID并创建一个*任务(task)* 。该任务将由系统调度并异步执行（可能在不同的机器上）。当任务完成执行时，其返回值将存储在对象存储中。
 ```
