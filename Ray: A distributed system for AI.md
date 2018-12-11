@@ -59,3 +59,75 @@ z = ray.get(z_id)
 
 ### Actors
 仅使用上述远程功能和任务无法完成的一件事是让多个任务在相同的共享可变状态下运行。 这出现在机器学习的多个上下文中，其中共享状态可以是模拟器的状态，神经网络的权重或者完全不同的东西。 Ray使用actor抽象来封装多个任务之间共享的可变状态。 这是一个如何使用Atari模拟器完成此操作的玩具示例。
+```
+import gym
+
+@ray.remote
+class Simulator(object):
+    def __init__(self):
+        self.env = gym.make("Pong-v0")
+        self.env.reset()
+
+    def step(self, action):
+        return self.env.step(action)
+
+# Create a simulator, this will start a remote process that will run
+# all methods for this actor.创建一个模拟器，这将启动一个远程进程，该进程将运行此actor的所有方法。
+simulator = Simulator.remote()
+
+observations = []
+for _ in range(4):
+    # Take action 0 in the simulator. This call does not block and
+    # it returns a future.在模拟器中执行操作0。 此调用不会阻止，它会返回future。
+    observations.append(simulator.step.remote(0))
+```
+虽然简单，但actor可以非常灵活的方式使用。 例如，actor可以封装模拟器或神经网络策略，它可以用于分布式培训（与参数服务器一样）或用于实时应用程序中的策略服务。
+
+![avatar](https://bair.berkeley.edu/static/blog/ray/param_actor.png)
+左：为多个客户端进程提供预测/操作的actor。右：多个参数服务器参与者使用多个工作进程执行分布式培训。
+
+### Parameter server example
+参数服务器可以实现为Ray actor，如下所示:
+```
+@ray.remote
+class ParameterServer(object):
+    def __init__(self, keys, values):
+        # These values will be mutated, so we must create a local copy.
+        # 这些值将被突变，因此我们必须创建一个本地副本。
+        values = [value.copy() for value in values]
+        self.parameters = dict(zip(keys, values))
+
+    def get(self, keys):
+        return [self.parameters[key] for key in keys]
+
+    def update(self, keys, values):
+        # This update function adds to the existing values, but the update
+        # function can be defined arbitrarily.
+        # 此更新功能添加到现有值，但更新功能可以任意定义。
+        for key, value in zip(keys, values):
+            self.parameters[key] += value
+```
+要实例化参数服务器，请执行以下操作。
+```
+parameter_server = ParameterServer.remote(initial_keys, initial_values)
+```
+To create four long-running workers that continuously retrieve and update the parameters, do the following.
+要创建四个持续检索和更新参数的长时间运行的工作程序，请执行以下操作。
+```
+@ray.remote
+def worker_task(parameter_server):
+    while True:
+        keys = ['key1', 'key2', 'key3']
+        # Get the latest parameters.
+        values = ray.get(parameter_server.get.remote(keys))
+        # Compute some parameter updates.
+        updates = …
+        # Update the parameters.
+        parameter_server.update.remote(keys, updates)
+
+# Start 4 long-running tasks.
+for _ in range(4):
+    worker_task.remote(parameter_server)
+```
+
+
