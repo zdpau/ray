@@ -1,3 +1,5 @@
+https://blog.csdn.net/u011254180/article/details/80352304 （有人翻译了）
+
 # Actors
 Ray中的远程功能应该被认为是功能性和无副作用。仅限于远程功能的情况下，我们可以为我们提供分布式功能编程（Restricting ourselves only to remote functions gives us distributed functional programming），这对于许多使用情况非常有用，但在实践中会受到一些限制。
 
